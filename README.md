@@ -4,7 +4,7 @@
 ## PPT 등록 폴더 자동 게시 (권장)
 바탕화면 **PPT 등록 폴더**에 인터넷 공개 승인된 PPTX를 넣거나 같은 이름으로 교체하면 자동으로 원문 추출·전체 PNG 변환·GitHub 저장·Pages 배포가 진행됩니다. 관리자 프로그램을 매번 실행하거나 토큰을 다시 입력하고 게시 버튼을 누를 필요가 없습니다.
 
-최초 한 번 tools/PPT 폴더 최초 설정.ps1을 실행해 GitHub 토큰과 공개 자료 전용 폴더 확인을 저장하세요. 토큰은 Windows 계정별 DPAPI로 암호화되며 local/folder-publisher/config.json에만 저장됩니다. 같은 실행 중 토큰 갱신도 적용됩니다. GitHub의 해당 저장소에만 Contents 읽기/쓰기와 Actions 읽기 권한을 부여하세요. 토큰 만료·회수 시 최초 설정에서 갱신해야 합니다.
+최초 한 번 tools/PPT 폴더 최초 설정.ps1을 실행해 기존 GitHub CLI 로그인과 공개 자료 전용 폴더 확인을 저장하세요. 인증은 GitHub CLI의 기존 로그인 상태를 사용하고 이 도구에서는 인증 정보를 입력·저장하지 않습니다. CLI에 아직 로그인하지 않았다면 최초 설정에서 브라우저로 GitHub 로그인만 진행합니다. 이 PC에는 별도 local/github-cli에 공식 무료 CLI를 준비했습니다. 새 CLI 로그인은 기존 Only select repositories 앱 설정과 별도이며 승인 화면의 권한 범위를 확인해야 합니다. 프로그램의 접근 대상은 haebaek-pages 하나로 고정됩니다.
 
 Windows 로그인 시 자동 실행 옵션은 현재 사용자 시작프로그램 바로가기를 설치합니다. 관리자 권한·Windows 서비스·방화벽 변경은 하지 않습니다. 최초 설정 완료 전에는 자동 게시하지 않습니다. 재부팅 뒤에는 Windows 로그인만 하면 감시가 재개됩니다. PC가 꺼져 있어도 이미 게시된 직원 사이트는 계속 동작하며, 새 PPT 처리는 PC 로그인 후 수행됩니다.
 
@@ -12,11 +12,11 @@ Windows 로그인 시 자동 실행 옵션은 현재 사용자 시작프로그�
 
 삭제는 이 감시 도구가 게시한 자료에만 반영하고 다른 기존 자료는 유지합니다. 폴더 자체가 사라지면 전체 삭제로 간주하지 않습니다. 변환 오류 시 새 버전은 게시하지 않으며, GitHub 저장 후 Pages 배포 실패 시 별도 상태 안내합니다. 상태는 local/folder-publisher/상태.txt에서 확인합니다. 여러 PPT를 함께 넣으면 한 번의 게시로 묶습니다.
 
-검증: 가상 PPT를 이용해 실제 PowerPoint PNG 변환, 자동 추가·교체·삭제, 변경 없는 파일 생략, 원본 보존, Windows 암호화 저장, 개인정보 의심 텍스트 게시 차단, 누락 폴더 삭제 방지 확인. GitHub 게시 호출은 가상 API로 확인했으며 실제 자동 게시 감시는 사용자 최초 인증 후 시작됩니다. 실제 병원 자료는 외부 전송하지 않았습니다.
+검증: 가상 PPT를 이용해 실제 PowerPoint PNG 변환, 자동 추가·교체·삭제, 변경 없는 파일 생략, 원본 보존,  개인정보 의심 텍스트 게시 차단, 누락 폴더 삭제 방지 확인. GitHub 게시 호출은 가상 API로 확인했으며 실제 자동 게시 감시는 사용자 최초 인증 후 시작됩니다. 실제 병원 자료는 외부 전송하지 않았습니다.
 
 ## 관리자 사용 (Windows + 설치된 PowerPoint 필요)
 1. tools/해백이 자료 관리자.ps1을 실행합니다. 현재 PC에서는 기존 deployment-haebaek의 Python 실행 환경만 이용하며 코드·DB는 수정하지 않습니다.
-2. GitHub 연결을 누르고 이 저장소 하나에만 권한을 부여한 fine-grained personal access token을 입력합니다. GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → Only select repositories → haebaek-pages → Contents: Read and write / Actions: Read-only. 토큰은 채팅에 보내지 마세요. 실행 중 메모리에만 보관됩니다.
+2. GitHub 연결을 누르면 GitHub CLI의 기존 로그인 인증을 사용합니다. 필요 시 폴더 최초 설정에서 브라우저 로그인을 완료하세요.
 3. PPT 여러 개 추가·교체에서 PPTX를 선택합니다. 원문 추출과 모든 슬라이드 PNG 변환이 자동 진행됩니다. 같은 파일명은 교체됩니다. 목록에서 선택 자료 삭제도 가능합니다.
 4. 선택 자료·이미지 검토를 눌러 모든 원문과 PNG를 확인하고 개인정보·비공개 내용이 없는지 직접 검토합니다. 인터넷 공개 승인 확인을 체크합니다.
 5. 자동 게시를 누르면 GitHub 저장과 Pages 자동 배포까지 진행합니다. 성공 메시지와 웹 주소가 표시됩니다. PNG·ZIP 제작과 수동 업로드는 필요 없습니다.
@@ -35,4 +35,4 @@ local/admin-venv/Scripts/python.exe -m pip install -r tools/requirements-admin.t
 운영비는 기존 GitHub Pages 무료 구성과 이미 설치된 PowerPoint를 이용해 0원입니다. GitHub 서비스 사용 제한은 그대로 적용됩니다. 새 PowerPoint 구매나 유료 서버/API는 사용하지 않습니다.
 
 ## 확인 범위
-가상 PPT로 실제 PowerPoint COM 변환·원문 추출·전체 PNG 생성·원본 보존 확인 완료. 게시 데이터 병합·삭제·GitHub API 호출 순서는 가상 API로 검증. 실제 자료 자동 게시 전체 과정은 관리자 GitHub 토큰 연결 후 확인할 수 있습니다. 실제 병원 자료는 포함하지 않았습니다.
+가상 PPT로 실제 PowerPoint COM 변환·원문 추출·전체 PNG 생성·원본 보존 확인 완료. 게시 데이터 병합·삭제·GitHub API 호출 순서는 가상 API로 검증. 실제 자료 자동 게시 전체 과정은 관리자 GitHub 로그인 연결 후 확인할 수 있습니다. 실제 병원 자료는 포함하지 않았습니다.

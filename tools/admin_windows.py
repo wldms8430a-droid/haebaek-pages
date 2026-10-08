@@ -22,7 +22,7 @@ def convert(source, output):
     if source.suffix.lower() != '.pptx' or source.stat().st_size > 50*1024*1024:
         raise ValueError('PPTX 50MB 이하만 지원합니다.')
     slides = extract_ppt(source, 300)
-    output = Path(output); output.mkdir(parents=True, exist_ok=True)
+    output = Path(output).resolve(); output.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()[:20]
     docid = hashlib.sha256(source.name.encode()).hexdigest()[:20]
     pythoncom.CoInitialize(); app = presentation = None
@@ -130,7 +130,7 @@ class Admin:
             b=ttk.Button(row,text=title,command=command);b.pack(side='left',padx=3);self.buttons.append(b)
         self.list=tk.Listbox(root,height=10,selectmode='extended');self.list.pack(fill='x',padx=15,pady=10)
         self.approved=tk.BooleanVar();ttk.Checkbutton(root,variable=self.approved,text='선택한 추가·교체 자료의 원문과 모든 이미지를 검토했고 인터넷 공개 승인을 확인했습니다.').pack(anchor='w',padx=15)
-        ttk.Label(root,text='실제 병원 자료는 공개 승인 전 게시하지 마세요. 게시된 원문·이미지는 누구나 열람할 수 있습니다.\nGitHub 토큰은 이 실행 중 메모리에서만 사용하며 파일·로그에 저장하지 않습니다.',wraplength=870).pack(padx=15,pady=8)
+        ttk.Label(root,text='실제 병원 자료는 공개 승인 전 게시하지 마세요. 게시된 원문·이미지는 누구나 열람할 수 있습니다.\nGitHub CLI의 기존 로그인 인증을 사용합니다. 별도 인증키 입력은 필요 없습니다.',wraplength=870).pack(padx=15,pady=8)
         self.status=tk.StringVar(value='PPT를 선택하거나 GitHub에 연결하세요. PNG·ZIP·수동 GitHub 업로드는 필요 없습니다.')
         ttk.Label(root,textvariable=self.status,wraplength=870).pack(padx=15,pady=8)
         self.text=tk.Text(root,height=13,wrap='word');self.text.pack(fill='both',expand=True,padx=15,pady=10)
@@ -167,11 +167,10 @@ class Admin:
         self.list.delete(0,'end')
         for n in self.names:self.list.insert('end',n+(' · 추가/교체 대기' if n in self.additions else ' · 게시 중'))
     def connect(self):
-        token=simpledialog.askstring('GitHub 연결','haebaek-pages 한 저장소에만 Contents: Read and write, Actions: Read 권한을 부여한 fine-grained token을 입력하세요.',show='*')
-        if not token:return
-        self.token=token.strip()
         def run():
-            self.existing=GitHub(self.token).snapshot()[3];return 'GitHub 연결 완료 · 기존 게시 자료를 불러왔습니다.'
+            from github_auth import ExistingGitHub
+            self.api=ExistingGitHub();self.existing=self.api.snapshot()[3];self.token='connected'
+            return '기존 GitHub 로그인 연결 완료 · 기존 게시 자료를 불러왔습니다.'
         self.task(run)
     def add(self):
         files=filedialog.askopenfilenames(title='공개 승인 검토할 PPT 선택',filetypes=[('PowerPoint','*.pptx')])
@@ -213,7 +212,7 @@ class Admin:
         if self.additions and not self.approved.get():messagebox.showinfo('공개 승인 확인','원문·이미지 검토와 인터넷 공개 승인 확인을 체크해주세요.');return
         if not messagebox.askyesno('인터넷 공개 게시','추가·교체·삭제 변경을 모든 사용자에게 게시할까요? 공개 승인된 자료만 포함해야 합니다.'):return
         def run():
-            api=GitHub(self.token);commit=api.publish(self.additions,self.deletions,self.notify)
+            api=self.api;commit=api.publish(self.additions,self.deletions,self.notify)
             self.additions.clear();self.deletions.clear();self.existing=api.snapshot()[3]
             url=api.wait_deploy(commit,self.notify)
             return '배포 성공 · 모든 직원이 별도 설정 없이 사용합니다: '+url
