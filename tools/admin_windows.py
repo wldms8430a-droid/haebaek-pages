@@ -6,6 +6,7 @@ from urllib.error import HTTPError
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from ppt_extract import extract_ppt, create_render_copy
+from source_answers import compile_record
 
 REPO = 'wldms8430a-droid/haebaek-pages'
 URL = 'https://wldms8430a-droid.github.io/haebaek-pages/'
@@ -43,7 +44,7 @@ def convert(source, output):
                     raise ValueError('슬라이드 PNG 변환에 실패했습니다.')
                 records.append(dict(id=f'{source.name}::{s.number}', filename=source.name, number=s.number,
                     title=s.title, text=s.text, image=f'data/images/{filename}', hidden=s.hidden, warnings=s.warnings))
-            return records
+            return [compile_record(record) for record in records]
     finally:
         try:
             if presentation is not None: presentation.Close()

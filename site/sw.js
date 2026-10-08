@@ -1,6 +1,6 @@
 'use strict';
-const CACHE='haebaek-pages-v4';
-const FILES=['./','./index.html','./install.html','./manifest.webmanifest','./assets/auth.css','./assets/chat.css','./assets/home.css','./assets/ui.js','./assets/pages.js','./assets/search.js','./assets/search-rules.json','./assets/viewer.js','./assets/pwa.js','./assets/brand/haebaek-original.png','./assets/brand/nursing-logo-original.png','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/apple-touch-icon.png','./assets/icons/favicon-32.png'];
+const CACHE='haebaek-pages-v5';
+const FILES=['./','./index.html','./install.html','./manifest.webmanifest','./assets/auth.css','./assets/chat.css','./assets/home.css','./assets/ui.js','./assets/ppt.js','./assets/pages-api.js','./assets/search.js','./assets/search-rules.json','./assets/viewer.js','./assets/pwa.js','./assets/brand/haebaek-original.png','./assets/brand/nursing-logo-original.png','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/apple-touch-icon.png','./assets/icons/favicon-32.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('haebaek-pages-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||!FILES.some(path=>new URL(path,self.registration.scope).href===e.request.url))return;e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));}return r;}).catch(async()=>await caches.match(e.request)||new Response('인터넷 연결이 필요합니다.',{status:503,headers:{'Content-Type':'text/plain;charset=utf-8'}})));});
