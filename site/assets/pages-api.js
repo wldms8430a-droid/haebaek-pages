@@ -1,36 +1,39 @@
 /* Static search/data bridge only. Original home renderer and interactions are unchanged. */
 (()=>{
  'use strict';
- let slides=[],rules,sequence=0;const contexts=new Map();
+ let slides=[],rules,sequence=0;const contexts=new Map(),selections=new Map();
  const ready=(async()=>{const [r,d]=await Promise.all([fetch('./assets/search-rules.json',{cache:'no-store'}),fetch('./data/slides.json',{cache:'no-store'})]);if(!r.ok||!d.ok)throw Error('등록 자료를 불러오지 못했습니다.');rules=await r.json();HaebaekSearch.configure(rules);slides=(await d.json()).filter(s=>!s.hidden);})();
  const compact=q=>HaebaekSearch.norm(q).replace(/ /g,'');
- function mode(q){const value=compact(q);if(/양식|서식|신청서보여|신청서어디|작성할서류|쓸서류|뭐작성/.test(value))return 'forms';if(/결재|전결|합의/.test(value))return 'approval';return {duration:'period',procedure:'procedure',deadline:'deadline',documents:'documents'}[HaebaekSearch.intent(q)]||'general';}
+ function mode(q){const value=compact(q);if(/양식|서식|신청서보여|신청서어디|작성할서류|쓸서류|뭐작성/.test(value))return 'forms';if(/결재|전결|합의/.test(value))return 'approval';if(/누가|자격|대상|쓸수있/.test(value))return 'eligibility';if(/유의|주의/.test(value))return 'caution';if(value.includes('사용방법'))return 'usage';if(/뭐해야|어떻게해|어떻게신청/.test(value))return 'procedure';if(/서류|첨부|뭐내|무슨서류/.test(value))return 'documents';if(/언제|기한/.test(value))return 'deadline';if(/신청방법|신청해|어떻게|절차|기안|작성방법|사직하려/.test(value))return 'procedure';if(/며칠|몇일|쉬어|얼마나|기간|시간|휴가있어/.test(value))return 'period';return 'general';}
+ const requests=["알려줘", "알려주세요", "하고 싶어", "하고싶어", "쉬고 싶어", "쉬고싶어", "쉬어야 해", "키우면서", "때문에", "줄이고 싶어", "줄이고싶어", "하려면", "하는데", "하면", "언제까지", "언제", "며칠이야", "며칠", "몇 일", "어떻게", "무슨", "필요해", "내야 해", "내야 돼", "내야해", "내야돼", "뭐", "종류", "에 대해", "관련해서", "쓸 수 있는", "제도"];
+ function retrieval(q,intent){if(intent==='forms')q=q.replace(/(?:신청|작성)?\s*(?:양식|서식)|신청서(?=\s|$)|작성할\s*서류|쓸\s*서류|뭐\s*작성해야\s*해/g,' ').replace(/보여\s*주세요|보여줘|어디\s*있어\??|어디\s*있나요\??/g,' ');else if(intent==='approval')q=q.replace(/결재라인|결재방법/g,'결재선');else if(['eligibility','caution','usage'].includes(intent))q=q.replace(/누가\s*쓸\s*수\s*있어\??|누가|대상|자격|유의사항|주의사항|사용방법/g,' ');let value=HaebaekSearch.norm(q);for(const [alias,target] of [...rules.aliases].sort((a,b)=>b[0].length-a[0].length)){const a=HaebaekSearch.norm(alias),t=HaebaekSearch.norm(target),m=rules.modes?.[alias];if(m){const suffix=m==='stem'?'((?:(?:이|가|은|는|을|를|의|도|요|서|면|고|다|께서|부터|까지))*)':'';value=value.replace(new RegExp('(^|\\s)'+a+suffix+'(?=\\s|$)','g'),(_,prefix,tail)=>prefix+t+(tail||''));}else if(alias.length>=2)value=value.split(a).join(t);}value=value.replace(/(?:^|\s)가족(?:이|은|의)?(?=\s|$)/g,' ');for(const suffix of [...requests].sort((a,b)=>b.length-a.length))value=value.split(suffix).join(' ');return value.replace(/(?:^|\s)(?:몸이|오래|싶어|해도|돼|이|가|서)(?=\s|$)/g,' ').replace(/(신청|제출|작성)(?:해야|해|할)(?:요)?/g,'$1').replace(/\s+/g,' ').trim();}
  const names={period:'사용기간',procedure:'신청방법',approval:'결재방법',deadline:'신청기한',documents:'제출서류',forms:'신청서·양식'};
  function source(s){return {slide_id:s.id,version_id:s.filename,slide_number:s.number,title:s.title,filename:s.filename,image_url:'./'+s.image,thumbnail_url:'./'+s.image,score:s.score||0};}
- const empty=()=>({action:'no_answer',results:[],answer:null,feedback_token:'static-unavailable'});
+ const empty=()=>({action:'no_answer',results:[],answer:null});
  async function request(path,method,data,signal){
   await ready;if(signal?.aborted)throw new DOMException('Aborted','AbortError');
-  if(path==='/api/feedback')throw Error('기존 피드백 저장 서버가 이 정적 배포에 연결되어 있지 않습니다.');
   if(path!=='/api/chat')throw Error('이 요청은 기존 서버 기능이 필요합니다.');
   const prior=contexts.get(data.conversation_token);let selected,subject='',intent=mode(data.question),matches;
   if(data.selected_detail){
    const choice=prior?.choices?.get(data.selected_detail);if(!choice)throw Error('제공된 선택지만 선택해주세요.');selected=slides.find(s=>s.id===prior.slide);
    if(choice.intent)intent=choice.intent;else{intent=prior.intent;subject=choice.subject;}
   }else{
-   matches=HaebaekSearch.search(slides,data.question,prior?.slide);
-   if(data.selected_topic_id){selected=matches.find(s=>s.id===data.selected_topic_id);if(!selected)throw Error('선택한 자료가 변경되었습니다. 다시 질문해주세요.');}
-   else if(matches.length){
-    const best=matches[0];const tied=matches.filter(s=>s.score===best.score&&s.titleMatches===best.titleMatches);
-    if(new Set(tied.map(s=>s.title)).size>1){return {action:'clarification_choices',message:'찾으시는 업무를 선택해주세요.',choices:tied.map(s=>({id:s.id,label:s.title,filename:s.filename})),results:[],selection_token:'static-source-selection',understanding:{intent}};}
+   if(data.selected_topic_id){const issued=selections.get(data.selection_token);if(!issued||issued.question!==data.question||!issued.ids.has(data.selected_topic_id))throw Error('원래 질문과 선택 항목을 확인해주세요.');selected=slides.find(s=>s.id===data.selected_topic_id);if(!selected)throw Error('선택한 자료가 변경되었습니다. 다시 질문해주세요.');}
+   else{matches=HaebaekSearch.search(slides,data.question,prior?.slide);if(!matches.length)matches=HaebaekSearch.search(slides,retrieval(data.question,intent),prior?.slide);if(!matches.length){const raw=compact(data.question),named=(rules.aliases||[]).some(([a,t])=>compact(t).length>=3&&slides.some(s=>compact(s.title).includes(compact(t)))&&(raw.includes(compact(a))||raw.includes(compact(t))));if(!named){const tokens=HaebaekSearch.norm(data.question).split(' ').filter(w=>w.length>=3&&!requests.includes(w));const roots=[];for(const word of HaebaekSearch.norm(data.question).split(' '))for(const suffix of ['했는데','했어요','했어','하는데','인데','하면','이라면'])if(word.endsWith(suffix)&&word.length-suffix.length>=2){const root=word.slice(0,-suffix.length);if(slides.some(s=>compact(s.title).includes(root)))roots.push(root);}const rare=tokens.filter(w=>{const count=slides.filter(s=>compact(s.text).includes(compact(w))).length;return count>0&&count<=3;});if(rare.length)matches=slides.filter(s=>rare.every(w=>compact(s.text).includes(compact(w)))).map(s=>({...s,score:10+2*rare.length+4*roots.filter(w=>compact(s.title).includes(w)).length+8*Number(rare.some(w=>compact(s.title).includes(compact(w)))),titleMatches:rare.filter(w=>compact(s.title).includes(compact(w))).length})).sort((a,b)=>b.score-a.score||a.number-b.number);}}let broad=false;const clean=retrieval(data.question,intent),words=clean.split(' ').filter(Boolean);if(!matches.length&&words.length&&words.every(w=>(rules.common||[]).includes(w))){const coarse=words.filter(w=>w.length>=2);matches=slides.filter(s=>coarse.some(w=>compact(s.title).includes(compact(w)))).map(s=>({...s,score:12,titleMatches:0}));broad=!!matches.length;}
+   if(!matches.length){const candidates=slides.filter(s=>HaebaekSearch.titleTerms(s.title).some(t=>compact(data.question).includes(compact(t)))).slice(0,6);if(candidates.length){const selection='selection:'+ ++sequence;selections.set(selection,{question:data.question,ids:new Set(candidates.map(s=>s.id))});return {action:'clarification_choices',message:'질문의 조건을 확정하지 못했습니다. 찾으시는 업무가 아래 중 하나인가요?',choices:candidates.map(s=>({id:s.id,label:s.title,filename:s.filename})),selection_token:selection,results:candidates.map(source),recovery:true,understanding:{intent}};}}
+   if(matches.length){
+    const best=matches[0];const candidates=broad?matches:matches.filter(s=>s.score===best.score&&s.titleMatches===best.titleMatches);const grouped=new Map();for(const candidate of candidates){const key=candidate.filename+'::'+compact(candidate.title.replace(/\s*(?:작성\s*)?예시.*$/,''));if(!grouped.has(key))grouped.set(key,candidate);}const tied=[...grouped.values()];
+    if(tied.length>1){const selection='selection:'+ ++sequence;selections.set(selection,{question:data.question,ids:new Set(tied.map(s=>s.id))});return {action:'clarification_choices',message:'관련된 업무가 여러 개 있습니다. 궁금한 항목을 선택해주세요.',choices:tied.map(s=>({id:s.id,label:s.title,filename:s.filename})),results:[],selection_token:selection,understanding:{intent}};}
     selected=best;
-   }
+   }}
   }
   if(!selected)return empty();
   const id='conversation:'+ ++sequence;const state={slide:selected.id,intent,subject:'',choices:new Map()};
-  let query=compact(data.question);for(const [alias,canonical] of rules.aliases||[])if(alias.length>=2)query=query.split(compact(alias)).join(compact(canonical));
-  if(!subject){const subjects=Object.keys(selected.subject_answers||{}).filter(s=>compact(s).length>=3&&query.includes(compact(s))).sort((a,b)=>compact(b).length-compact(a).length);subject=subjects[0]||(prior?.slide===selected.id?prior.subject:'')||'';}
-  state.subject=subject;let answer=(subject?selected.subject_answers?.[subject]?.[intent]:null)||selected.answers?.[intent];
+  const query=compact(retrieval(data.question,intent));
+  if(!subject){const literal=compact(data.question),keys=Object.keys(selected.subject_answers||{}),subjects=keys.filter(s=>compact(s).length>=3&&(query.includes(compact(s))||literal.includes(compact(s)))).sort((a,b)=>compact(b).length-compact(a).length);subject=subjects[0]||'';if(!subject){let relations=['본인','자녀','부모','배우자','형제자매','조부모','외조부모'].filter(r=>query.includes(r));if(relations.includes('조부모')||relations.includes('외조부모'))relations=relations.filter(r=>r!=='부모');const candidates=keys.filter(k=>relations.length&&relations.every(r=>compact(k).includes(r))&&!(relations.includes('부모')&&/조부모|백숙부모|외숙모/.test(k))).sort((a,b)=>compact(a).length-compact(b).length);subject=candidates[0]||'';}if(!subject&&prior?.slide===selected.id)subject=prior.subject||'';}
+  state.subject=subject;const answerMode=intent==='period'&&compact(data.question).includes('시간')?'period_time':intent;let relations=['본인','자녀','부모','배우자','형제자매','조부모','외조부모'].filter(r=>query.includes(r));if(relations.includes('조부모')||relations.includes('외조부모'))relations=relations.filter(r=>r!=='부모');let answer=(!data.selected_detail&&relations.length?selected.relation_answers?.[relations.join('|')]?.[answerMode]:null)||(subject?selected.subject_answers?.[subject]?.[answerMode]:null)||selected.answers?.[answerMode];
   if(!answer)throw Error('게시 자료의 원본 답변 데이터가 없습니다. 관리자가 자료를 다시 게시해야 합니다.');
+  answer={...answer,facts:[...(answer.facts||[])],warnings:[...(answer.warnings||[])]};const results=[source(selected)];if(!data.selected_detail&&!data.selected_topic_id){const key=s=>s.filename+'::'+compact(s.title.replace(/\s*(?:작성\s*)?예시.*$/,''));const cohort=(matches||[]).filter(s=>s.id!==selected.id&&key(s)===key(selected)).slice(0,2);for(const other of cohort){const extra=(subject?other.subject_answers?.[subject]?.[answerMode]:null)||other.answers?.[answerMode];if(extra?.facts?.length){for(const fact of extra.facts)if(!answer.facts.some(old=>old.subject===fact.subject&&old.label===fact.label&&old.quote===fact.quote))answer.facts.push(fact);results.push(source(other));answer.warnings.push(...(extra.warnings||[]));}}const numbers=new Map();for(const fact of answer.facts)if(fact.numbers?.length){const k=fact.subject+'::'+fact.label;if(!numbers.has(k))numbers.set(k,new Set());numbers.get(k).add(JSON.stringify(fact.numbers));}if(cohort.length&&[...numbers.values()].some(values=>values.size>1)){answer.facts=[];answer.warnings=['같은 업무의 원문 수치가 서로 다릅니다. 담당 부서 확인이 필요합니다.'];answer.needs_review=true;}answer.warnings=[...new Set(answer.warnings)];}
   if(intent==='general'){
    for(const key of ['period','procedure','approval','documents','forms'])if(selected.answers?.[key]?.facts?.length)state.choices.set('intent:'+key,{intent:key,label:names[key]});
   }else if(intent==='period'&&!subject){
@@ -38,8 +41,8 @@
    if(subjects.length>1&&numbers.size>1)subjects.forEach((value,i)=>state.choices.set('subject:'+i,{subject:value,label:value}));
   }
   contexts.set(id,state);if(contexts.size>40)contexts.delete(contexts.keys().next().value);
-  if(state.choices.size>1)return {action:'clarification_choices',message:intent==='general'?'어떤 내용이 궁금하신가요?':'어떤 대상에 대해 궁금하신가요?',detail_choices:true,choices:[...state.choices].map(([key,value])=>({id:key,label:value.label,filename:selected.filename})),conversation_token:id,results:[],understanding:{intent}};
-  return {action:'direct_answer',answer,results:[source(selected)],conversation_token:id,feedback_token:'static-unavailable',understanding:{intent}};
+  if(state.choices.size>1)return {action:'clarification_choices',message:intent==='general'?'어떤 내용이 궁금하신가요?':'어떤 대상에 대해 궁금하신가요?',detail_choices:true,choices:[...state.choices].map(([key,value])=>({id:key,label:value.label,filename:selected.filename})),conversation_token:id,results:[source(selected)],understanding:{intent}};
+  return {action:answer.facts?.length?'direct_answer':'no_answer',answer,results,conversation_token:id,understanding:{intent}};
  }
  window.HaebaekPagesAPI={ready,request};
 })();

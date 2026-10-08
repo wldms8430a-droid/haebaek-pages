@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='haebaek-pages-v5';
+const CACHE='haebaek-pages-v6';
 const FILES=['./','./index.html','./install.html','./manifest.webmanifest','./assets/auth.css','./assets/chat.css','./assets/home.css','./assets/ui.js','./assets/ppt.js','./assets/pages-api.js','./assets/search.js','./assets/search-rules.json','./assets/viewer.js','./assets/pwa.js','./assets/brand/haebaek-original.png','./assets/brand/nursing-logo-original.png','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/apple-touch-icon.png','./assets/icons/favicon-32.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('haebaek-pages-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

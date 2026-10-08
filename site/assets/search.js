@@ -47,5 +47,5 @@
       else if(block)block.lines.push(line);}
     if(block)out.push(block);return out;
   }
-  const api={configure,norm,intent,search,conditions};root.HaebaekSearch=api;if(typeof module!=='undefined')module.exports=api;
+  const api={configure,norm,intent,search,conditions,titleTerms};root.HaebaekSearch=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

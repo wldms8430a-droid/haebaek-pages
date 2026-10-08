@@ -185,26 +185,10 @@
         card.append(node("p",result.title || `슬라이드 ${result.slide_number}`,"reference-caption"),sourceImage(result));
         const controls=node("div",null,"reference-actions");action(controls,"크게 보기",()=>enlarge(result));
         card.append(controls);cards.append(card);
-      });evidence.append(cards);container.append(evidence);renderFeedback(lastResponse);
+      });evidence.append(cards);container.append(evidence);
     }
     function reset() {if(busy)return;conversationToken=null;currentResults=[];container.replaceChildren();panel.hidden=true;document.getElementById("question-bubble").hidden=true;document.getElementById("home-intro").hidden=false;document.getElementById("new-question").hidden=true;input.value="";input.placeholder="궁금한 내용을 입력해 주세요.";show("");document.body.classList.remove("sidebar-open");document.querySelector('.mobile-menu')?.setAttribute("aria-expanded","false");input.focus();document.getElementById("hero-question").value="";document.getElementById("work-questions").hidden=true;document.querySelectorAll("[data-work]").forEach(item=>item.setAttribute("aria-expanded","false"));window.scrollTo(0,0);}
     document.getElementById("new-question").addEventListener("click",reset);document.querySelector('.side-nav a[href="/"]')?.addEventListener("click",event=>{event.preventDefault();reset();});document.getElementById("close-slide-dialog").addEventListener("click",()=>document.getElementById("slide-dialog").close());
-    function renderFeedback(result){
-      if(!result?.feedback_token)return;
-      const box=node("div",null,"answer-feedback");box.append(node("p","이 답변이 도움이 되었나요?"));
-      const message=node("p",null,"feedback-status");message.setAttribute("role","status");let sent=false,sending=false;
-      const good=node("button","도움됐어요"),bad=node("button","개선이 필요해요");good.type=bad.type="button";
-      const details=node("div",null,"feedback-details");details.hidden=true;details.append(node("p","어떤 점을 개선하면 좋을까요?"));
-      const select=node("select");select.setAttribute("aria-label","개선 유형");
-      for(const label of ["선택해주세요","답변 내용이 틀려요","원하는 자료가 아니에요","자료를 찾지 못했어요","답변이 이해하기 어려워요","화면·기능이 불편해요","기타"]){const option=node("option",label);option.value=label==="선택해주세요"?"":label;select.append(option);}details.append(select);
-      const comment=node("textarea");comment.maxLength=1000;comment.setAttribute("aria-label","추가 의견 (선택)");details.append(comment,node("p","개인정보는 입력하지 마세요.","privacy-note"));
-      const send=node("button","보내기");send.type="button";details.append(send);
-      async function save(helpful){if(sent||sending)return;if(!helpful&&!select.value){message.textContent="개선 유형을 선택해주세요.";return;}sending=true;good.disabled=bad.disabled=send.disabled=true;
-        try{await request("/api/feedback","POST",{receipt_token:result.feedback_token,helpful,category:helpful?null:select.value,comment:helpful?"":comment.value||""});sent=true;details.hidden=true;message.textContent="의견 감사합니다.";}
-        catch{message.textContent="의견을 저장하지 못했습니다. 다시 시도해 주세요.";}
-        finally{sending=false;good.disabled=bad.disabled=send.disabled=sent;}}
-      good.addEventListener("click",()=>save(true));bad.addEventListener("click",()=>{details.hidden=false;});send.addEventListener("click",()=>save(false));box.append(good,bad,details,message);container.append(box);
-    }
     function renderChoices(result,question){
       container.replaceChildren();const card=node("section");card.className="clarification-card";card.append(node("h2",result.message));const grid=node("div");grid.className="chat-choices";let shown=0;
       function more(){for(const choice of result.choices.slice(shown,shown+6)){const button=node("button");button.type="button";button.title=`${choice.label} · ${choice.filename}`;button.append(node("span",choice.label));button.addEventListener("click",()=>submitQuestion(question,result.detail_choices?{selected_detail:choice.id,conversation_token:result.conversation_token}:{selected_topic_id:choice.id,selection_token:result.selection_token,question:result.selection_question||question,requested_intent:result.understanding?.intent}));grid.append(button);}shown+=6;moreButton.hidden=shown>=result.choices.length;}
@@ -220,7 +204,7 @@
           renderChoices(result,question);
         }
         else if(currentResults.length)renderResults();
-        else{container.replaceChildren(node("p","등록된 간호국 자료에서 관련 내용을 찾지 못했습니다."));container.firstChild.className="no-result-card";renderFeedback(result);}
+        else{container.replaceChildren(node("p","등록된 간호국 자료에서 관련 내용을 찾지 못했습니다."));container.firstChild.className="no-result-card";}
         input.value="";input.placeholder="이어서 궁금한 점을 입력해 주세요.";document.getElementById("new-question").hidden=false;recent.unshift(question);recent.splice(3);const list=document.getElementById("recent-questions");if(list){list.replaceChildren();for(const value of recent){const item=node("button",value);item.type="button";item.addEventListener("click",()=>{input.value=value;input.focus();document.getElementById("hero-question").value="";document.getElementById("work-questions").hidden=true;document.querySelectorAll("[data-work]").forEach(item=>item.setAttribute("aria-expanded","false"));window.scrollTo(0,0);});list.append(item);}}
       }catch(error){container.replaceChildren(node("p",error.name==="AbortError"?"응답 시간이 초과되었습니다. 다시 시도해주세요.":"답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요. "+(error.message||""),"no-result-card"));const retry=node("button","다시 시도");retry.type="button";retry.addEventListener("click",()=>submitQuestion(question,selection));container.append(retry);show(error.message === "인터넷 연결이 필요합니다." ? error.message : "");document.getElementById("new-question").hidden=false;}finally{clearTimeout(timeout);busy=false;button.disabled=false;if(heroButton)heroButton.disabled=false;input.disabled=false;}
     }

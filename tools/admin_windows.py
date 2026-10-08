@@ -15,6 +15,23 @@ STATE.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(filename=STATE/'admin.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 
+_fonts_activated=False
+def activate_installed_fonts():
+    global _fonts_activated
+    if _fonts_activated:return
+    import ctypes,winreg
+    try:
+        key=winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows NT\CurrentVersion\Fonts')
+        try:
+            for i in range(winreg.QueryInfoKey(key)[1]):
+                _,value,_=winreg.EnumValue(key,i)
+                if isinstance(value,str) and Path(value).is_file():ctypes.windll.gdi32.AddFontResourceExW(value,0,None)
+        finally:winreg.CloseKey(key)
+    except FileNotFoundError:pass
+    result=ctypes.c_size_t();ctypes.windll.user32.SendMessageTimeoutW(0xffff,0x001d,0,0,2,1000,ctypes.byref(result))
+    _fonts_activated=True
+
+
 def convert(source, output):
     """Read only; use our own PowerPoint instance and sanitized temporary copy."""
     import pythoncom
@@ -26,11 +43,12 @@ def convert(source, output):
     output = Path(output).resolve(); output.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()[:20]
     docid = hashlib.sha256(source.name.encode()).hexdigest()[:20]
-    pythoncom.CoInitialize(); app = presentation = None
+    activate_installed_fonts()
+    pythoncom.CoInitialize(); app = presentation = None; previous_security=None
     try:
         with tempfile.TemporaryDirectory(prefix='haebaek-pages-render-') as temp:
             safe = Path(temp)/'render.pptx'; create_render_copy(source, safe)
-            app = win32com.client.DispatchEx('PowerPoint.Application'); app.AutomationSecurity = 3
+            app = win32com.client.DispatchEx('PowerPoint.Application'); previous_security=app.AutomationSecurity; app.AutomationSecurity = 3
             presentation = app.Presentations.Open(str(safe), True, False, False)
             if presentation.Slides.Count != len(slides):
                 raise ValueError('PPT 슬라이드 수가 일치하지 않습니다.')
@@ -42,6 +60,8 @@ def convert(source, output):
                 presentation.Slides.Item(s.number).Export(str(path), 'PNG', 1600, height)
                 if path.read_bytes()[:8] != b'\x89PNG\r\n\x1a\n':
                     raise ValueError('슬라이드 PNG 변환에 실패했습니다.')
+                final_name=f'{docid}-{digest}-{hashlib.sha256(path.read_bytes()).hexdigest()[:16]}-{s.number}.png'
+                path.rename(output/final_name);filename=final_name
                 records.append(dict(id=f'{source.name}::{s.number}', filename=source.name, number=s.number,
                     title=s.title, text=s.text, image=f'data/images/{filename}', hidden=s.hidden, warnings=s.warnings))
             return [compile_record(record) for record in records]
@@ -50,7 +70,9 @@ def convert(source, output):
             if presentation is not None: presentation.Close()
         finally:
             try:
-                if app is not None: app.Quit()
+                if app is not None:
+                    if previous_security is not None:app.AutomationSecurity=previous_security
+                    if app.Presentations.Count==0:app.Quit()
             finally: pythoncom.CoUninitialize()
 
 
