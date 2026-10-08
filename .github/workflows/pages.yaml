@@ -1,4 +1,4 @@
-name: Deploy fictional Haebaek Pages
+name: Deploy Haebaek Pages
 on:
   push:
     branches: [main]
