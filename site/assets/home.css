@@ -224,3 +224,5 @@ body.home-shell{font-family:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","M
 @media(max-width:600px){#slide-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:10px}#viewer-viewport{max-height:calc(100dvh - 160px)}.viewer-toolbar{gap:5px;padding-right:44px}.viewer-toolbar button{font-size:12px;padding:7px 10px}.answer-greeting{font-size:16px}.answer-subtitle{font-size:12px}.answer-feedback>button{min-height:44px}}
 
 .viewer-toolbar button{width:auto!important;flex:0 0 auto;float:none!important}.viewer-toolbar #viewer-reset{min-width:90px}
+
+.local-materials{margin:16px 0;padding:14px 18px;border:1px solid #ded6fa;border-radius:16px;background:#fff;color:#24234d}.local-materials summary{cursor:pointer;font-weight:700}.local-materials label{display:block;margin:12px 0}.local-materials input,.local-materials select{max-width:100%;display:block;margin-top:6px}.local-materials pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.local-materials p{font-size:14px;line-height:1.6}
