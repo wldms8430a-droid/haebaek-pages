@@ -31,12 +31,12 @@
     }specific=[...new Set(specific)];
     if(!canonical.size&&!specific.length)return context?slides.filter(s=>s.id===context).map(s=>({...s,score:0,matched:[]})):[];
     const prepared=slides.filter(s=>!s.hidden).map(s=>({slide:s,title:compact(s.title),body:compact(s.title+'\n'+s.text),canon:new Set(occurrences(s.title+'\n'+s.text).map(m=>m.target)),heading:new Set(occurrences(s.title).map(m=>m.target)),literal:titleTerms(s.title).filter(t=>raw.includes(t))}));
-    const phrases=[raw,expanded].filter(p=>p.length>=4);const headingAnchor=canonical.size&&prepared.some(s=>[...canonical].some(c=>s.heading.has(c))),exact=prepared.some(s=>phrases.some(p=>s.title.includes(p)));
-    const results=[];for(const s of prepared){
-      if([...canonical].some(c=>!s.canon.has(c))||headingAnchor&&![...canonical].some(c=>s.heading.has(c))||exact&&!phrases.some(p=>s.title.includes(p)))continue;
+    const phrases=[raw,expanded].filter(p=>p.length>=4);const eligible=prepared.filter(s=>[...canonical].every(c=>s.canon.has(c))&&(!specific.length||specific.filter(t=>s.body.includes(t)).length/specific.length>=.75));const headingMatch=s=>[...canonical].some(c=>[...s.heading].some(h=>h===c||h.startsWith(c)));const headingAnchor=canonical.size&&eligible.some(headingMatch),exact=eligible.some(s=>phrases.some(p=>s.title.includes(p)));
+    const results=[];for(const s of eligible){
+      if([...canonical].some(c=>!s.canon.has(c))||headingAnchor&&!headingMatch(s)||exact&&!phrases.some(p=>s.title.includes(p)))continue;
       const hits=specific.filter(t=>s.body.includes(t));if(specific.length&&hits.length/specific.length<.75)continue;
       if(!(canonical.size||s.literal.length||hits.length>=2||hits.some(t=>t.length>=4)))continue;
-      let score=([...canonical].some(c=>s.heading.has(c))||s.literal.length||hits.some(t=>s.title.includes(t)))?8:0;
+      let score=(headingMatch(s)||s.literal.length||hits.some(t=>s.title.includes(t)))?8:0;
       score+=7*canonical.size+(phrases.some(p=>s.body.includes(p))?6:0)+2*hits.length+.25*common.filter(t=>s.body.includes(compact(t))).length+(hits.length+canonical.size>=2?2:0);
       if(score>=8)results.push({...s.slide,score,matched:[...new Set([...canonical,...hits,...s.literal])]});
     }return results.sort((a,b)=>b.score-a.score||a.filename.localeCompare(b.filename)||a.number-b.number).slice(0,10);
