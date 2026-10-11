@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { cp, copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -14,10 +14,11 @@ const initial = { staff: password(), admin: password() };
 const final = { staff: password(), admin: password() };
 while (final.staff === final.admin) final.admin = password();
 const sessionSecret = randomBytes(48).toString("base64url");
+const storeKey = `auth/preview-${randomBytes(12).toString("hex")}.json`;
 
 function run(command, args, input = "") {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: root, shell: process.platform === "win32", stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(command, args, { cwd: root, shell: false, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "", stderr = "";
     child.stdout.on("data", chunk => { stdout += chunk; });
     child.stderr.on("data", chunk => { stderr += chunk; });
@@ -28,7 +29,7 @@ function run(command, args, input = "") {
 }
 
 async function addEnv(name, value) {
-  await run(cli, ["env","add",name,"preview","--sensitive","--force","--yes","--no-color"], `${value}\n`);
+  await run(process.execPath, [cli,"env","add",name,"preview","--sensitive","--force","--yes","--no-color"], `${value}\n`);
 }
 
 const hashResult = await run(process.execPath, [join(root,"tools","hash_passwords_stdin.mjs")], JSON.stringify([initial.staff, initial.admin]));
@@ -36,8 +37,17 @@ const [staffHash, adminHash] = JSON.parse(hashResult.stdout);
 await addEnv("AUTH_SESSION_SECRET", sessionSecret);
 await addEnv("AUTH_STAFF_PASSWORD_HASH", staffHash);
 await addEnv("AUTH_ADMIN_PASSWORD_HASH", adminHash);
+await addEnv("AUTH_STORE_KEY", storeKey);
 
-const deploymentResult = await run(cli, ["deploy","--target","preview","--force","--yes","--json","--no-color"]);
+const stageRoot = join(root,"local","vercel-preview-stage");
+const stageProject = join(stageRoot,"site");
+await rm(stageRoot,{recursive:true,force:true});
+await mkdir(stageProject,{recursive:true});
+await cp(join(root,"api"),join(stageProject,"api"),{recursive:true});
+await cp(join(root,"site"),join(stageProject,"site"),{recursive:true});
+for (const file of ["package.json","pnpm-lock.yaml","vercel.json"]) await copyFile(join(root,file),join(stageProject,file));
+
+const deploymentResult = await run(process.execPath, [cli,"deploy",stageRoot,"--project","haebaek-pages-site","--target","preview","--force","--yes","--json","--no-color"]);
 const deploymentJson = JSON.parse(deploymentResult.stdout.slice(deploymentResult.stdout.indexOf("{")));
 function findDeploymentUrl(value) {
   if (typeof value === "string" && /(?:^https:\/\/|^)[a-z0-9-]+\.vercel\.app$/i.test(value)) return value;
@@ -60,7 +70,7 @@ async function request(path, { method="GET", body=null, jar="anonymous", csrf=""
   if (body !== null) args.push("--header","Content-Type: application/json","--request",method,"--data-binary","@-");
   else if (method !== "GET") args.push("--request",method);
   if (csrf) args.push("--header",`X-CSRF-Token: ${csrf}`);
-  const result = await run(cli,args,body === null ? "" : JSON.stringify(body));
+  const result = await run(process.execPath,[cli,...args],body === null ? "" : JSON.stringify(body));
   const marker = result.stdout.lastIndexOf("__STATUS__");
   if (marker < 0) throw new Error("HTTP 상태코드를 확인하지 못했습니다.");
   const status = Number(result.stdout.slice(marker + 10).trim());

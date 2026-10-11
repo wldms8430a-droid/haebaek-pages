@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-const STORE_PATH = "auth/config-v1.json";
+const storePath = () => process.env.AUTH_STORE_KEY || "auth/config-v1.json";
 
 function initialConfig() {
   const staffHash = process.env.AUTH_STAFF_PASSWORD_HASH;
@@ -30,7 +30,7 @@ export async function readAuthConfig() {
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error("비공개 Vercel Blob 연결이 필요합니다.");
   const { get } = await blobModule();
-  const result = await get(STORE_PATH, { access: "private" });
+  const result = await get(storePath(), { access: "private", useCache: false });
   if (!result) {
     const config = initialConfig();
     await writeAuthConfig(config);
@@ -48,7 +48,7 @@ export async function writeAuthConfig(config) {
     return;
   }
   const { put } = await blobModule();
-  await put(STORE_PATH, JSON.stringify(config), {
+  await put(storePath(), JSON.stringify(config), {
     access: "private",
     allowOverwrite: true,
     contentType: "application/json",
