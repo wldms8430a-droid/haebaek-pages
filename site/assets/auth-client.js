@@ -28,7 +28,7 @@
   });
   document.getElementById("password-form")?.addEventListener("submit",async event=>{
     event.preventDefault();const form=event.currentTarget,button=form.querySelector("button");if(form.new_password.value!==form.confirm_password.value)return show("새 비밀번호가 서로 일치하지 않습니다.",true);button.disabled=true;
-    try{const data=await request("/api/auth/change-password",{method:"POST",body:JSON.stringify({current_password:form.current_password.value,new_password:form.new_password.value})});show(data.message);form.reset();setTimeout(()=>location.replace("/login"),1200);}
+    try{const target=form.target_account?.value;const data=await request("/api/auth/change-password",{method:"POST",body:JSON.stringify({current_password:form.current_password.value,new_password:form.new_password.value,...(target?{target_account:target}:{})})});show(data.message);form.reset();if(!target||target==="admin")setTimeout(()=>location.replace("/login"),1200);else button.disabled=false;}
     catch(error){show(error.message,true);button.disabled=false;}
   });
   document.querySelectorAll("[data-logout]").forEach(button=>button.addEventListener("click",async()=>{button.disabled=true;try{await request("/api/auth/logout",{method:"POST",body:"{}"});location.replace("/login");}catch(error){show(error.message,true);button.disabled=false;}}));
