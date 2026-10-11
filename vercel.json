@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/site.js": {
+      "includeFiles": "site/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/login", "destination": "/api/site?path=login.html" },
+    { "source": "/assets/auth.css", "destination": "/api/site?path=assets/auth.css" },
+    { "source": "/assets/auth-client.js", "destination": "/api/site?path=assets/auth-client.js" },
+    { "source": "/assets/brand/:path*", "destination": "/api/site?path=assets/brand/:path*" },
+    { "source": "/assets/icons/:path*", "destination": "/api/site?path=assets/icons/:path*" },
+    { "source": "/:path*", "destination": "/api/site?path=:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "same-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}
