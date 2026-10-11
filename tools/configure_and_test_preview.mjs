@@ -95,14 +95,17 @@ try {
   expect((await request("/api/auth/change-password",{method:"POST",jar:"admin-old",csrf,body:{target_account:"staff",current_password:initial.admin,new_password:final.staff}})).status,200,"직원 비밀번호 변경");
   expect((await request("/api/auth/me",{jar:"staff-old"})).status,401,"기존 직원 세션 무효화");
   expect((await request("/api/auth/login",{method:"POST",jar:"staff-new",body:{account:"staff",password:final.staff}})).status,200,"새 직원 비밀번호 재로그인");
+  const staffNewMe = await request("/api/auth/me",{jar:"staff-new"});
+  expect(staffNewMe.status,200,"새 직원 세션 확인");
+  const staffCsrf = JSON.parse(staffNewMe.body).csrf_token;
   expect((await request("/api/auth/change-password",{method:"POST",jar:"admin-old",csrf,body:{target_account:"admin",current_password:initial.admin,new_password:final.admin}})).status,200,"관리자 본인 비밀번호 변경");
   expect((await request("/api/auth/me",{jar:"admin-old"})).status,401,"기존 관리자 세션 무효화");
   expect((await request("/api/auth/login",{method:"POST",jar:"admin-new",body:{account:"admin",password:final.admin}})).status,200,"새 관리자 비밀번호 재로그인");
-  expect((await request("/api/auth/logout",{method:"POST",jar:"staff-new",body:{}})).status,200,"로그아웃");
+  expect((await request("/api/auth/logout",{method:"POST",jar:"staff-new",csrf:staffCsrf,body:{}})).status,200,"로그아웃");
   expect((await request("/api/auth/me",{jar:"staff-new"})).status,401,"로그아웃 세션 종료");
   await mkdir(join(root,"local"),{recursive:true});
-  await run("powershell.exe",["-NoProfile","-ExecutionPolicy","Bypass","-File",join(root,"tools","protect_preview_credentials.ps1")],JSON.stringify(final));
-  process.stdout.write(JSON.stringify({ ok:true, deploymentUrl, tests:14 })+"\n");
+  await run("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",["-NoProfile","-ExecutionPolicy","Bypass","-File",join(root,"tools","protect_preview_credentials.ps1")],JSON.stringify(final));
+  process.stdout.write(JSON.stringify({ ok:true, deploymentUrl, tests:15 })+"\n");
 } finally {
   await rm(work,{recursive:true,force:true});
 }
