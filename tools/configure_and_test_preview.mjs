@@ -39,20 +39,32 @@ await addEnv("AUTH_ADMIN_PASSWORD_HASH", adminHash);
 
 const deploymentResult = await run(cli, ["deploy","--target","preview","--force","--yes","--json","--no-color"]);
 const deploymentJson = JSON.parse(deploymentResult.stdout.slice(deploymentResult.stdout.indexOf("{")));
-const deploymentUrl = deploymentJson.url.startsWith("http") ? deploymentJson.url : `https://${deploymentJson.url}`;
+function findDeploymentUrl(value) {
+  if (typeof value === "string" && /(?:^https:\/\/|^)[a-z0-9-]+\.vercel\.app$/i.test(value)) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) { const found = findDeploymentUrl(item); if (found) return found; }
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) { const found = findDeploymentUrl(item); if (found) return found; }
+  }
+  return "";
+}
+const rawDeploymentUrl = findDeploymentUrl(deploymentJson);
+if (!rawDeploymentUrl) throw new Error("Preview 배포 URL을 확인하지 못했습니다.");
+const deploymentUrl = rawDeploymentUrl.startsWith("http") ? rawDeploymentUrl : `https://${rawDeploymentUrl}`;
 const origin = new URL(deploymentUrl).origin;
 const work = await mkdtemp(join(tmpdir(),"haebaek-preview-test-"));
 
 async function request(path, { method="GET", body=null, jar="anonymous", csrf="" }={}) {
   const jarPath = join(work, `${jar}.cookies`);
-  const args = ["curl",path,"--deployment",deploymentUrl,"--","--silent","--show-error","--cookie-jar",jarPath,"--cookie",jarPath,"--header",`Origin: ${origin}`,"--write-out","\n%{http_code}"];
+  const args = ["curl",path,"--deployment",deploymentUrl,"--","--silent","--show-error","--cookie-jar",jarPath,"--cookie",jarPath,"--header",`Origin: ${origin}`,"--write-out=__STATUS__%{http_code}"];
   if (body !== null) args.push("--header","Content-Type: application/json","--request",method,"--data-binary","@-");
   else if (method !== "GET") args.push("--request",method);
   if (csrf) args.push("--header",`X-CSRF-Token: ${csrf}`);
   const result = await run(cli,args,body === null ? "" : JSON.stringify(body));
-  const lines = result.stdout.trimEnd().split(/\r?\n/);
-  const status = Number(lines.pop());
-  return { status, body: lines.join("\n") };
+  const marker = result.stdout.lastIndexOf("__STATUS__");
+  if (marker < 0) throw new Error("HTTP 상태코드를 확인하지 못했습니다.");
+  const status = Number(result.stdout.slice(marker + 10).trim());
+  return { status, body: result.stdout.slice(0, marker) };
 }
 
 function expect(actual, expected, label) {
